@@ -2,26 +2,26 @@ package com.cpsudevelopers.mig.sqlitebasics;
 
 import android.app.AlertDialog;
 import android.content.ContentValues;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
-import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
-
-    private static final String TAG = "MainActivity";
 
     private MyHelper dbHelper;
     private SQLiteDatabase db;
     SimpleCursorAdapter adapter;
+    long deleteItmeId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,51 +43,40 @@ public class MainActivity extends AppCompatActivity {
 
         ListView listView = (ListView) findViewById(R.id.listView);
         listView.setAdapter(adapter);
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                deleteItmeId = id;
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Confirm Delete")
+                        .setMessage("Are you sure?")
+                        .setCancelable(false)
+                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                db.execSQL("DELETE FROM contact WHERE _id =" + deleteItmeId);
+                                Cursor cursor = readAllData();
+                                adapter.changeCursor(cursor);
+                            }
+                        })
+                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        })
+                        .show();
+            }
+        });
 
         Button btnInsert = (Button) findViewById(R.id.insertButton);
         btnInsert.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ContentValues cv = new ContentValues();
-                cv.put(MyHelper.COL_NAME, "The dog");
-                cv.put(MyHelper.COL_PHONE_NUMBER, "000-000-0000");
-                db.insert(MyHelper.TABLE_NAME, null, cv);
-
-                Cursor cursor = readAllData();
-                adapter.changeCursor(cursor);
+                Intent i = new Intent(MainActivity.this, AddActivity.class);
+                startActivityForResult(i, 1);
             }
         });
-
-        Button btnDelete = (Button) findViewById(R.id.delete_button);
-        btnDelete.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                /*db.delete(
-                        MyHelper.TABLE_NAME,
-                        MyHelper.COL_PHONE_NUMBER + " LIKE ? ",
-                        new String[]{ "000%" }
-                );*/
-
-                db.execSQL("DELETE FROM contact WHERE phone_number LIKE '000%'");
-
-                Cursor cursor = readAllData();
-                adapter.changeCursor(cursor);
-            }
-        });
-        /*int count = cursor.getCount();
-
-        Log.i(TAG, "Number of row = " + count);
-
-        String msg = "";
-        while (cursor.moveToNext()) {
-            String name = cursor.getString(cursor.getColumnIndex(MyHelper.COL_NAME));
-            String phoneNumber = cursor.getString(cursor.getColumnIndex(MyHelper.COL_PHONE_NUMBER));
-            msg = String.format("Name: %s , Phone Number: %s\n", name, phoneNumber);
-        }
-
-        TextView text = (TextView) findViewById(R.id.text);
-        text.setText(msg);
-        */
     }
 
     private Cursor readAllData() {
@@ -99,6 +88,22 @@ public class MainActivity extends AppCompatActivity {
         Cursor cursor = db.query(MyHelper.TABLE_NAME, columns, null, null, null, null, null);
 
         return cursor;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 1) {
+            if (resultCode == RESULT_OK) {
+                ContentValues cv = new ContentValues();
+                cv.put(MyHelper.COL_NAME, data.getStringExtra("name"));
+                cv.put(MyHelper.COL_PHONE_NUMBER, data.getStringExtra("phone"));
+                db.insert(MyHelper.TABLE_NAME, null, cv);
+
+                Cursor cursor = readAllData();
+                adapter.changeCursor(cursor);
+            }
+        }
     }
 
     @Override
